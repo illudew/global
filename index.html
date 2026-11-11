@@ -986,15 +986,14 @@ function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(M
 /* 把某个词插到队列前方第 gap 个位置；同一单词先移除旧实例，避免同一轮重复出现 */
 function pushAhead(q,item,gap){
   for(var i=q.length-1;i>=0;i--){if(q[i].w===item.w)q.splice(i,1)}
-  q.splice(Math.max(0,Math.min(gap,q.length)),0,item);
-  return q;
+  q.splice(Math.min(gap,q.length),0,item);   /* gap 超出 queue 长度时插到末尾，最多排到 queue 尾端 */
 }
 
 /* ---------- session ---------- */
 var lastCtx=null,curCatKey=null,rushSel={lists:[]},listSel={mode:'auto'};
 function beginSession(q,msg,ctx){
   session={queue:q,total:q.length,initLen:q.length,uniDone:{},uniN:0,lastAutoMode:null,autoBag:null,
-    vPure:0,vFar:0,vBig:0,vLate:0,vLost:0,combo:0,maxCombo:0,log:[],ctx:ctx||{type:'list'}};
+    vPure:0,vFar:0,vBig:0,vLate:0,vLost:0,combo:0,maxCombo:0,log:[],ctx:ctx||{type:'list'},correct:{}};
   /* 新一轮必须清掉上一轮残留的「答错 3 秒锁定」，否则新卡片开头也会被拦住 */
   nextLockUntil=0;
   if(nextTimer){clearInterval(nextTimer);nextTimer=null}
