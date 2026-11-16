@@ -989,6 +989,7 @@ function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(M
 function pushAhead(q,item,gap){
   for(var i=q.length-1;i>=0;i--){if(q[i].w===item.w)q.splice(i,1)}
   q.splice(Math.min(gap,q.length),0,item);   /* gap 超出 queue 长度时插到末尾，最多排到 queue 尾端 */
+  return q;
 }
 
 /* ---------- session ---------- */
