@@ -671,7 +671,7 @@ function defaultHotkeys(){return JSON.parse(JSON.stringify({hint:'h',speak:' ',n
 
 /* ---------- word bank ---------- */
 var WORDS=(window.WORDS_BANK||[]).map(function(a){return {w:a[0],us:a[1]||'',uk:a[2]||'',zh:a[3]||'',pos:a[4]||'',baseLv:a[5]||5,def:a[6]||'',tags:a[7]||'',ex:a[8]||'',sen:a[9]||'',core:a[10]||''}});
-var MAP={};WORDS.forEach(function(d){MAP[d.w]=d});
+var MAP=Object.create(null);WORDS.forEach(function(d){MAP[d.w]=d});
 
 /* ---------- 考试分类词表（12 类 × 6 List）----------
    每个 List 携带若干「难度入口」：d = [{t:'PST',v:1},{t:'PRS',v:3},{t:'FTR',v:5}]，
@@ -679,9 +679,9 @@ var MAP={};WORDS.forEach(function(d){MAP[d.w]=d});
 var CATS=(window.EXAM_LISTS||[]).map(function(c){
   return {k:c.k,n:c.n,band:c.band||'PST',nodiff:!!c.nodiff,count:c.lists.reduce(function(s,l){return s+(l.w||[]).length},0),lists:c.lists.slice()};
 });
-var CAT_OF={},LIST_OF={},LIST_BY_KEY={},KEYS_OF={},BAND_WORDS={PST:[],PRS:[],FTR:[],BYD:[],ALL:[]};
+var CAT_OF=Object.create(null),LIST_OF=Object.create(null),LIST_BY_KEY={},KEYS_OF=Object.create(null),BAND_WORDS={PST:[],PRS:[],FTR:[],BYD:[],ALL:[]};
 /* SP 难度（专有名词、物理专业英语等）单词不进入回忆模式 */
-var SP_WORDS={};
+var SP_WORDS=Object.create(null);
 (window.EXAM_LISTS||[]).forEach(function(c){
   if((c.band||'')==='SP'||c.nodiff)(c.lists||[]).forEach(function(l){(l.w||[]).forEach(function(w){SP_WORDS[w]=1})});
 });
@@ -770,7 +770,7 @@ function load(){
     var bak=tryGet(STORE_BAK);
     if(bak){try{st=normalize(JSON.parse(bak));if(st)toast('主存档损坏，已从上一次备份恢复')}catch(e){archiveCorrupt(STORE_BAK,bak)}}
   }
-  return st||JSON.parse(JSON.stringify(DEFAULT));
+  return st||normalize(JSON.parse(JSON.stringify(DEFAULT)));
 }
 function normalize(o){
   o=(o&&typeof o==='object')?o:{};var st=Object.assign({},DEFAULT.settings,(o.settings&&typeof o.settings==='object')?o.settings:{});
@@ -780,7 +780,9 @@ function normalize(o){
   st.reviewLimit=Math.max(50,Math.min(1000,parseInt(st.reviewLimit,10)||1000));
   /* 一次性迁移：开启自动学习模式，并把每日新词 / 复习上限提升到新默认 */
   if(!st.v2){st.mode='auto';st.dailyNew=500;st.reviewLimit=1000;st.v2=1;}
-  var ws=(o.words&&typeof o.words==='object'&&!Array.isArray(o.words))?o.words:{};
+  /* 词条记录用无原型对象：词表里有 constructor 这类与 Object.prototype 同名的词 */
+  var ws=Object.create(null);
+  ((o.words&&typeof o.words==='object'&&!Array.isArray(o.words))?Object.keys(o.words):[]).forEach(function(k){ws[k]=o.words[k]});
   /* 兼容旧存档：补齐 Potential 用到的字段 */
   Object.keys(ws).forEach(function(w){var r=ws[w];if(!r||typeof r!=='object'){delete ws[w];return}
     if(r.errStreak==null)r.errStreak=0;if(r.penalty==null)r.penalty=0;if(r.last==null)r.last=0;
@@ -813,7 +815,7 @@ function save(){writeState(false)}
 function persistLocal(){writeState(true)}
 
 /* ---------- memory model ---------- */
-function userRec(w){var r=state.words[w];if(!r){r={stage:0,dueAt:Date.now(),introduced:null,meaningCorrect:0,productionCorrect:0,meaningWrong:0,productionWrong:0,hints:0,seen:0,correct:0,responseMs:0,streak:0,errStreak:0,penalty:0,memDamp:1,last:0};state.words[w]=r}return r}
+function userRec(w){var r=Object.prototype.hasOwnProperty.call(state.words,w)?state.words[w]:null;if(!r){r={stage:0,dueAt:Date.now(),introduced:null,meaningCorrect:0,productionCorrect:0,meaningWrong:0,productionWrong:0,hints:0,seen:0,correct:0,responseMs:0,streak:0,errStreak:0,penalty:0,memDamp:1,last:0};state.words[w]=r}return r}
 function personalLevel(d,r){r=r||{};var lv=d.baseLv;var wrong=(r.meaningWrong||0)+(r.productionWrong||0);lv+=Math.min(2.4,wrong*0.34);lv-=Math.min(1.4,(r.streak||0)*0.2);lv+=Math.min(1.0,(r.hints||0)*0.06);return clamp(Math.round(lv),1,d.baseLv===PROP_LV?PROP_LV:11)}
 /* 熟练度 0..1：记忆阶段为主(80%)，正确率为辅(20%)。答错 stage 会回落，熟练度随之下降。
    memDamp 为记忆率折扣（默认 1）：用了提示会被扣掉一半，之后一直生效。 */
@@ -2710,10 +2712,26 @@ function repairOwnership(){
     });
     state.ownershipV=3;
   }
+  if(ver<4){
+    /* 「极易混词」由 61 个 List 重排为 27 个 List（每 List 约 70 词）：
+       旧分组的谱面 / 成绩 / 当日豁免已失去对应关系，直接清掉；
+       仍归属在旧分组序号上的词，改指向包含它的新 List（找不到则置为待定）。 */
+    ['charts','lists','listDone'].forEach(function(f){
+      var o=state[f];if(!o||typeof o!=='object')return;
+      Object.keys(o).forEach(function(k){if(k.indexOf('YH:')===0)delete o[k]});
+    });
+    Object.keys(state.words).forEach(function(w){
+      var r=state.words[w];if(!r||!(r.seen>0))return;
+      if(!r.src||r.src.indexOf('YH:')!==0)return;
+      var ks=(KEYS_OF[w]||[]).filter(function(k){return k.indexOf('YH:')===0});
+      if(ks.length){if(r.src!==ks[0]){r.src=ks[0];moved++}}else{delete r.src;cleared++}
+    });
+    state.ownershipV=4;
+  }
   save();   /* 无论是否有改动都落盘标记，避免每次启动重复校正 */
   if(moved||cleared){
     renderHome();
-    toast('已重新归属 '+moved+' 个单词'+(cleared?'，'+cleared+' 个待定':'')+'（适配新的词库难度）');
+    toast('已重新归属 '+moved+' 个单词'+(cleared?'，'+cleared+' 个待定':'')+'（适配新的词库分组）');
   }
 }
 /* 一次性修复：旧版滚动计分 bug 曾把负分写进存档（如「最高 −6,666,594」）。
