@@ -1214,6 +1214,7 @@ function renderHome(){
      '<button class="home-btn" id="homeSearch" type="button"><span class="hb-ico">⌕</span><span class="hb-t">单词搜索</span><span class="hb-s">查词 / 音标 / 例句</span></button>'+
      '<button class="home-btn" id="homeSet" type="button"><span class="hb-ico">◌</span><span class="hb-t">设置</span><span class="hb-s">偏好 / 云端 / 数据</span></button>'+
    '</div>';
+  var independent=document.createElement('a');independent.className='home-btn';independent.href='confusables/cet6-culture.html';independent.textContent='易混词词库 · 六级与中国文化（独立学习，不计入 Potential）';el.querySelector('.home-grid').appendChild(independent);
   $('homeStudy').onclick=function(){showView('cats')};
   $('homeRush').onclick=function(){showView('rush')};
   $('homeStats').onclick=function(){showView('stats')};
@@ -1282,6 +1283,7 @@ function renderCats(){
      var pct=tot?Math.round(done/tot*100):0;
      return '<button class="cat-card" data-cat="'+c.k+'" type="button"><div class="cc-t">'+escapeHtml(c.n)+' <span class="bandtag cat-'+c.band+'">'+c.band+'</span></div><div class="cc-s">'+c.count+' 词 · '+c.lists.length+' 个 List · 进度 '+done+'/'+tot+'</div><div class="cc-bar"><i style="width:'+pct+'%"></i></div></button>';
    }).join('')+'</div>';
+  var independent=document.createElement('a');independent.href='confusables/cet6-culture.html';independent.textContent='易混词词库 · 六级与中国文化（独立清单，不计入 Potential）';el.appendChild(independent);
   $('catsBack').onclick=function(){showView('home')};
   el.querySelectorAll('[data-cat]').forEach(function(b){b.onclick=function(){curCatKey=b.dataset.cat;showView('lists')}});
 }
